@@ -36,12 +36,23 @@ pub async fn run_remote_action(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     }
     let action_dir = action_dir.unwrap();
     let action = crate::model::action::read_action(&action_dir)?;
-    if action.runs.is_composite() {
+    // `runs` is optional in the schema, and the predicates below belong to it.
+    // An action without it declares no way to run, which is worth saying rather
+    // than silently taking none of the branches.
+    let Some(runs) = action.runs.as_ref() else {
+        tracing::warn!(
+            target: "act_on::action",
+            "action at {} declares no `runs` section; nothing to execute",
+            action_dir.display()
+        );
+        return Ok(());
+    };
+    if runs.is_composite() {
         // TODO v1.1: recurse into composite.
         tracing::info!(target: "act_on::action", "composite action (TODO)");
-    } else if action.runs.is_node() {
+    } else if runs.is_node() {
         tracing::info!(target: "act_on::action", "node action (TODO)");
-    } else if action.runs.is_docker() {
+    } else if runs.is_docker() {
         tracing::info!(target: "act_on::action", "docker action (TODO)");
     }
     Ok(())

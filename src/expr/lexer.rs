@@ -176,7 +176,11 @@ impl<'a> Lexer<'a> {
         let mut s = String::new();
         s.push(first as char);
         while let Some(b) = self.peek() {
-            if b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.' {
+            // No '.' here. A dot is the property operator, and the parser
+            // already builds an attribute access from `Token::Dot` — but it
+            // never saw one, because this loop absorbed the dot and handed back
+            // a single identifier like `env.NAME`, which resolves to nothing.
+            if b.is_ascii_alphanumeric() || b == b'_' || b == b'-' {
                 s.push(b as char);
                 self.pos += 1;
             } else {
