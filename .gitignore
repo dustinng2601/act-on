@@ -1,0 +1,18 @@
+# Rust
+/target
+**/*.rs.bk
+# Cargo.lock is committed on purpose. This ships a binary, and a lockfile is
+# what makes a build of a given commit reproducible; leaving it out only makes
+# sense for a library, whose consumers resolve their own versions.
+
+# act-on local state
+.act-on/
+.act-on-cache/
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
