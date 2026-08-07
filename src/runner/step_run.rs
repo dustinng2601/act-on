@@ -42,6 +42,10 @@ pub async fn run_run_step(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     // redirects to nothing and the shell fails on an empty path.
     let commands = crate::workflow_cmd::FileCommands::new(&rc.actpath)?;
     let mut env_map = rc.env.lock().clone();
+    // A step's own `env:` sits on top of the job's, interpolated first — it is
+    // routinely how a value reaches a script, including how a composite action
+    // passes its inputs to the shell (`toolchain: ${{ inputs.toolchain }}`).
+    merge_step_env(&mut env_map, step, &env)?;
     crate::sandbox::file_cmd::populate_env(&mut env_map, &commands);
 
     let exit = rc
@@ -86,6 +90,33 @@ pub(super) fn apply_file_commands(
         rc.step_results
             .lock()
             .insert(id.to_string(), result);
+    }
+    Ok(())
+}
+
+/// Apply a step's `env:` over the environment it will run with.
+///
+/// Values are interpolated against the same expression environment as the
+/// script, so `${{ inputs.x }}` and `${{ steps.y.outputs.z }}` resolve the way
+/// they do everywhere else.
+pub(super) fn merge_step_env(
+    env_map: &mut std::collections::HashMap<String, String>,
+    step: &Step,
+    expr: &crate::expr::eval::Env,
+) -> Result<()> {
+    let Some(serde_yaml::Value::Mapping(map)) = step.env.as_ref() else {
+        return Ok(());
+    };
+    for (key, value) in map {
+        let Some(key) = key.as_str() else { continue };
+        let raw = match value {
+            serde_yaml::Value::String(s) => s.clone(),
+            other => serde_yaml::to_string(other)
+                .unwrap_or_default()
+                .trim_end()
+                .to_string(),
+        };
+        env_map.insert(key.to_string(), crate::expr::interpolate(&raw, expr)?);
     }
     Ok(())
 }
