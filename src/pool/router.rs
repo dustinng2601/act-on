@@ -19,9 +19,10 @@ pub enum Route {
 /// Decide where a job whose `runs-on` is `labels` should run.
 pub fn pick_device_for_job(labels: &[String], policy: &Policy) -> Route {
     // Try owned devices first (unless prefer_pool is true).
-    let owned = policy.devices.iter().find(|d| {
-        d.owner.as_deref().unwrap_or(&policy.owner) == policy.owner && d.matches(labels)
-    });
+    let owned = policy
+        .devices
+        .iter()
+        .find(|d| d.owner.as_deref().unwrap_or(&policy.owner) == policy.owner && d.matches(labels));
 
     if !policy.prefer_pool {
         if let Some(d) = owned {

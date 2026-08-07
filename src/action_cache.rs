@@ -1,7 +1,7 @@
 //! Action cache — clone `org/repo@ref` to a local directory and look it up
 //! later.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -33,7 +33,12 @@ pub fn parse_uses(uses: &str) -> Option<RemoteRef> {
     let org = parts.next()?.to_string();
     let repo = parts.next()?.to_string();
     let path = parts.next().unwrap_or("").to_string();
-    Some(RemoteRef { org, repo, path, rref })
+    Some(RemoteRef {
+        org,
+        repo,
+        path,
+        rref,
+    })
 }
 
 /// Cache keyed by `org/repo/path@ref` -> on-disk path.
@@ -53,11 +58,7 @@ impl ActionCache {
 
     /// Fetch (clone or reuse) an action and return the local directory that
     /// contains its `action.yml`.
-    pub async fn fetch(
-        &self,
-        cfg: &Config,
-        uses: &str,
-    ) -> anyhow::Result<Option<PathBuf>> {
+    pub async fn fetch(&self, _cfg: &Config, uses: &str) -> anyhow::Result<Option<PathBuf>> {
         let rr = match parse_uses(uses) {
             Some(rr) => rr,
             None => return Ok(None),
@@ -118,18 +119,17 @@ impl ActionCache {
 }
 
 // Static instance via once_cell.
-static GLOBAL_CACHE: once_cell::sync::Lazy<Arc<ActionCache>> =
-    once_cell::sync::Lazy::new(|| {
-        let root = std::env::var_os("ACT_ON_CACHE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                let mut p = dirs_or_temp();
-                p.push("act-on");
-                p.push("action-cache");
-                p
-            });
-        Arc::new(ActionCache::new(root).expect("cannot create action cache"))
-    });
+static GLOBAL_CACHE: once_cell::sync::Lazy<Arc<ActionCache>> = once_cell::sync::Lazy::new(|| {
+    let root = std::env::var_os("ACT_ON_CACHE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let mut p = dirs_or_temp();
+            p.push("act-on");
+            p.push("action-cache");
+            p
+        });
+    Arc::new(ActionCache::new(root).expect("cannot create action cache"))
+});
 
 /// Get the global [`ActionCache`].
 pub fn global() -> Arc<ActionCache> {

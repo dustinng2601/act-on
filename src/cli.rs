@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 
-use crate::config::{Config, NameValue, parse_kv_file, PlatformMapping};
+use crate::config::{parse_kv_file, Config, NameValue, PlatformMapping};
 use crate::model::plan::WorkflowPlanner;
 use crate::model::{JobStatus, JobType};
 use crate::pool::{Policy, Registry};
@@ -101,7 +101,10 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// List the jobs in a workflow.
-    List { #[arg(short = 'e', long = "event", default_value = "push")] event: String },
+    List {
+        #[arg(short = 'e', long = "event", default_value = "push")]
+        event: String,
+    },
     /// Validate a workflow file (parse-only).
     Validate,
     /// Show device pool and policy.
@@ -178,8 +181,7 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
         .policy_path
         .as_ref()
         .and_then(|p| Policy::from_path(p).ok());
-    let _registry: Option<Registry> =
-        _policy.as_ref().map(|p| Registry::from_policy(p.clone()));
+    let _registry: Option<Registry> = _policy.as_ref().map(|p| Registry::from_policy(p.clone()));
 
     let mut results = Vec::new();
 
@@ -193,7 +195,8 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
                 .find(|(p, _)| *p == run.workflow_file)
                 .map(|(_, w)| w.clone())
                 .or_else(|| planner.workflows.first().map(|(_, w)| w.clone()));
-            let workflow = workflow.ok_or_else(|| anyhow::anyhow!("workflow not found for job {}", run.job_id))?;
+            let workflow = workflow
+                .ok_or_else(|| anyhow::anyhow!("workflow not found for job {}", run.job_id))?;
             let job = workflow
                 .jobs
                 .get(&run.job_id)
@@ -221,7 +224,12 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
             }
             let sandbox = Arc::new(HostEnvironment::scoped(workdir, &scope)?);
             let rc = Arc::new(crate::runner::RunContext::new(
-                config, workflow, run.job_id.clone(), job, run.matrix.clone(), sandbox,
+                config,
+                workflow,
+                run.job_id.clone(),
+                job,
+                run.matrix.clone(),
+                sandbox,
             ));
 
             let rc_clone = rc.clone();
@@ -256,7 +264,11 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
         .iter()
         .any(|(_, s)| matches!(s, JobStatus::Failure | JobStatus::Cancelled));
     crate::reporter::print_run_summary(&plan, &results);
-    Ok(if any_failed { ExitCode::FAILURE } else { ExitCode::SUCCESS })
+    Ok(if any_failed {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    })
 }
 
 async fn list_jobs(config: &Config, event: &str) -> anyhow::Result<ExitCode> {
@@ -288,7 +300,10 @@ async fn print_pool(config: &Config) -> anyhow::Result<ExitCode> {
     let policy = Policy::from_path(p)?;
     eprintln!("owner: {}", policy.owner);
     eprintln!("prefer_pool: {}", policy.prefer_pool);
-    eprintln!("fallback.missing_platform: {:?}", policy.fallback.missing_platform);
+    eprintln!(
+        "fallback.missing_platform: {:?}",
+        policy.fallback.missing_platform
+    );
     eprintln!("devices:");
     for d in &policy.devices {
         eprintln!(

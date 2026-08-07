@@ -12,11 +12,11 @@
 
 use std::sync::Arc;
 
+use crate::expr::{eval_if, DefaultStatusCheck};
 use crate::model::StepResult;
 use crate::model::StepStatus;
-use crate::Result;
-use crate::expr::{DefaultStatusCheck, eval_if};
 use crate::runner::run_context::RunContext;
+use crate::Result;
 
 /// The state of a step's execution stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,10 +32,7 @@ pub async fn run_step(
     index: usize,
     stage: StepStage,
 ) -> Result<()> {
-    let step_id = step
-        .id
-        .clone()
-        .unwrap_or_else(|| format!("step-{}", index));
+    let step_id = step.id.clone().unwrap_or_else(|| format!("step-{}", index));
 
     // Allocate / reuse StepResult.
     let mut result = rc

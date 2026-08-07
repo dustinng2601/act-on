@@ -45,9 +45,7 @@ pub(crate) fn record_outcome(rc: &RunContext, step_id: &str, result: StepResult)
     } else {
         step_id.to_string()
     };
-    rc.step_results
-        .lock()
-        .insert(id, result.clone());
+    rc.step_results.lock().insert(id, result.clone());
 }
 
 #[allow(dead_code)]

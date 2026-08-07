@@ -33,11 +33,7 @@ impl LineHandler {
         let head = body[..end].trim();
         let arg = unescape(&body[end + 2..]);
         let (name, kv) = parse_head(head);
-        Some(WorkflowCommand {
-            name,
-            kv,
-            arg,
-        })
+        Some(WorkflowCommand { name, kv, arg })
     }
 }
 
@@ -72,9 +68,7 @@ pub fn handle_command(
     match cmd.name.as_str() {
         "set-output" => {
             if let Some(name) = cmd.kv.get("name") {
-                step_result
-                    .outputs
-                    .insert(name.clone(), cmd.arg.clone());
+                step_result.outputs.insert(name.clone(), cmd.arg.clone());
             }
         }
         "save-state" => {
@@ -203,11 +197,7 @@ fn parse_env_file(p: &Path) -> std::io::Result<Vec<(String, String)>> {
 }
 
 /// Apply a `StepStatus` to a `StepResult`, honouring `continue-on-error`.
-pub fn finalize_status(
-    step_result: &mut StepResult,
-    success: bool,
-    continue_on_error: bool,
-) {
+pub fn finalize_status(step_result: &mut StepResult, success: bool, continue_on_error: bool) {
     step_result.outcome = if success {
         StepStatus::Success
     } else {
@@ -290,6 +280,9 @@ mod value_tests {
         let mut result = StepResult::default();
         fc.read_back(&mut result, &mut env).unwrap();
 
-        assert_eq!(result.outputs.get("components").unwrap(), " --component clippy");
+        assert_eq!(
+            result.outputs.get("components").unwrap(),
+            " --component clippy"
+        );
     }
 }

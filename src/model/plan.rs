@@ -180,14 +180,12 @@ impl WorkflowPlanner {
     fn job_hooked_on_event(wf: &Workflow, _job_id: &str, event: &str) -> bool {
         match &wf.raw_on {
             Some(serde_yaml::Value::String(s)) => s == event,
-            Some(serde_yaml::Value::Sequence(seq)) => seq
-                .iter()
-                .filter_map(|v| v.as_str())
-                .any(|s| s == event),
-            Some(serde_yaml::Value::Mapping(m)) => m
-                .keys()
-                .filter_map(|k| k.as_str())
-                .any(|k| k == event),
+            Some(serde_yaml::Value::Sequence(seq)) => {
+                seq.iter().filter_map(|v| v.as_str()).any(|s| s == event)
+            }
+            Some(serde_yaml::Value::Mapping(m)) => {
+                m.keys().filter_map(|k| k.as_str()).any(|k| k == event)
+            }
             None => event == "push",
             // `on:` written as a scalar other than a string — a bare number or
             // boolean — names no event, so nothing hooks it.
@@ -202,13 +200,9 @@ impl WorkflowPlanner {
 /// can treat both alike. `include` and `exclude` are not applied here: a bare
 /// matrix is what the cartesian product describes, and honouring the directives
 /// belongs with them rather than half-done.
-fn matrix_combinations(
-    job: &Job,
-) -> Vec<std::collections::HashMap<String, serde_yaml::Value>> {
-    let Some(serde_yaml::Value::Mapping(map)) = job
-        .strategy
-        .as_ref()
-        .and_then(|s| s.matrix.as_ref())
+fn matrix_combinations(job: &Job) -> Vec<std::collections::HashMap<String, serde_yaml::Value>> {
+    let Some(serde_yaml::Value::Mapping(map)) =
+        job.strategy.as_ref().and_then(|s| s.matrix.as_ref())
     else {
         return vec![Default::default()];
     };

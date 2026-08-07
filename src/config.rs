@@ -106,15 +106,24 @@ pub struct Config {
 impl Config {
     /// Resolve `env` map (workflow-level env), interpolated later.
     pub fn env_map(&self) -> HashMap<String, String> {
-        self.env.iter().map(|nv| (nv.name.clone(), nv.value.clone())).collect()
+        self.env
+            .iter()
+            .map(|nv| (nv.name.clone(), nv.value.clone()))
+            .collect()
     }
 
     pub fn secrets_map(&self) -> HashMap<String, String> {
-        self.secrets.iter().map(|nv| (nv.name.clone(), nv.value.clone())).collect()
+        self.secrets
+            .iter()
+            .map(|nv| (nv.name.clone(), nv.value.clone()))
+            .collect()
     }
 
     pub fn vars_map(&self) -> HashMap<String, String> {
-        self.vars.iter().map(|nv| (nv.name.clone(), nv.value.clone())).collect()
+        self.vars
+            .iter()
+            .map(|nv| (nv.name.clone(), nv.value.clone()))
+            .collect()
     }
 
     pub fn inputs_map(&self) -> HashMap<String, String> {

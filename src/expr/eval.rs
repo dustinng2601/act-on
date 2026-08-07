@@ -45,11 +45,7 @@ impl Value {
             Value::Int(i) => i.to_string(),
             Value::Float(f) => f.to_string(),
             Value::Str(s) => s.clone(),
-            Value::Array(a) => a
-                .iter()
-                .map(|v| v.as_str())
-                .collect::<Vec<_>>()
-                .join(","),
+            Value::Array(a) => a.iter().map(|v| v.as_str()).collect::<Vec<_>>().join(","),
             Value::Object(_) => serde_json::to_string(self).unwrap_or_default(),
         }
     }
@@ -74,14 +70,10 @@ impl Value {
                 .map(serde_json::Value::Number)
                 .unwrap_or(serde_json::Value::Null),
             Value::Str(s) => serde_json::Value::String(s.clone()),
-            Value::Array(a) => {
-                serde_json::Value::Array(a.iter().map(|v| v.to_json()).collect())
+            Value::Array(a) => serde_json::Value::Array(a.iter().map(|v| v.to_json()).collect()),
+            Value::Object(m) => {
+                serde_json::Value::Object(m.iter().map(|(k, v)| (k.clone(), v.to_json())).collect())
             }
-            Value::Object(m) => serde_json::Value::Object(
-                m.iter()
-                    .map(|(k, v)| (k.clone(), v.to_json()))
-                    .collect(),
-            ),
         }
     }
 
@@ -99,9 +91,7 @@ impl Value {
                 }
             }
             Yaml::String(s) => Value::Str(s.clone()),
-            Yaml::Sequence(seq) => {
-                Value::Array(seq.iter().map(Value::from_yaml).collect())
-            }
+            Yaml::Sequence(seq) => Value::Array(seq.iter().map(Value::from_yaml).collect()),
             Yaml::Mapping(m) => {
                 let mut out = HashMap::new();
                 for (k, v) in m.iter() {
@@ -120,6 +110,9 @@ impl Value {
     }
 }
 
+/// How `hashFiles()` is answered — a closure, because the runner supplies it.
+pub type HashFiles = Box<dyn Fn(&[String]) -> Vec<String> + Send + Sync>;
+
 /// Evaluation environment — like nektos/act `EvaluationEnvironment`.
 pub struct Env {
     pub github: GithubContext,
@@ -133,7 +126,7 @@ pub struct Env {
     pub matrix: HashMap<String, Yaml>,
     pub inputs: HashMap<String, String>,
     pub runner: HashMap<String, String>,
-    pub hash_files: Box<dyn Fn(&[String]) -> Vec<String> + Send + Sync>,
+    pub hash_files: HashFiles,
 }
 
 impl Default for Env {
@@ -209,10 +202,7 @@ impl<'a> Evaluator<'a> {
     pub fn evaluate(&self, expr: &Expr, dsc: DefaultStatusCheck) -> anyhow::Result<Value> {
         if dsc != DefaultStatusCheck::None && !self.references_status(expr) {
             let wrapped = Expr::And(
-                Box::new(Expr::Call(
-                    dsc.as_str().to_string(),
-                    Vec::new(),
-                )),
+                Box::new(Expr::Call(dsc.as_str().to_string(), Vec::new())),
                 Box::new(expr.clone()),
             );
             return self.eval(&wrapped);
@@ -223,10 +213,15 @@ impl<'a> Evaluator<'a> {
     fn references_status(&self, expr: &Expr) -> bool {
         match expr {
             Expr::Call(name, _) => {
-                matches!(name.as_str(), "success" | "failure" | "cancelled" | "always")
+                matches!(
+                    name.as_str(),
+                    "success" | "failure" | "cancelled" | "always"
+                )
             }
             Expr::Not(e) => self.references_status(e),
-            Expr::And(a, b) | Expr::Or(a, b) => self.references_status(a) || self.references_status(b),
+            Expr::And(a, b) | Expr::Or(a, b) => {
+                self.references_status(a) || self.references_status(b)
+            }
             Expr::Compare(_, a, b) => self.references_status(a) || self.references_status(b),
             Expr::Index(a, b) => self.references_status(a) || self.references_status(b),
             Expr::Attr(a, _) => self.references_status(a),
@@ -302,12 +297,10 @@ impl<'a> Evaluator<'a> {
                 ));
             }
             "job" => {
-                return Ok(Value::Object(HashMap::from([
-                    (
-                        "status".into(),
-                        Value::Str(self.env.job.status.to_string()),
-                    ),
-                ])));
+                return Ok(Value::Object(HashMap::from([(
+                    "status".into(),
+                    Value::Str(self.env.job.status.to_string()),
+                )])));
             }
             "steps" => {
                 return Ok(Value::Object(
@@ -396,22 +389,17 @@ impl<'a> Evaluator<'a> {
     fn attr(&self, base: Value, name: &str) -> Value {
         match base {
             Value::Object(m) => m.get(name).cloned().unwrap_or(Value::Null),
-            Value::Array(a) => Value::Array(
-                a.iter()
-                    .map(|v| self.attr(v.clone(), name))
-                    .collect(),
-            ),
+            Value::Array(a) => Value::Array(a.iter().map(|v| self.attr(v.clone(), name)).collect()),
             Value::Str(s) => Value::Str(s),
-            other => Value::Null,
+            _other => Value::Null,
         }
     }
 
     fn index(&self, base: Value, idx: Value) -> anyhow::Result<Value> {
         match (base, idx) {
-            (Value::Array(a), Value::Int(i)) => Ok(a
-                .get(i as usize)
-                .cloned()
-                .unwrap_or(Value::Null)),
+            (Value::Array(a), Value::Int(i)) => {
+                Ok(a.get(i as usize).cloned().unwrap_or(Value::Null))
+            }
             (Value::Object(m), Value::Str(k)) => Ok(m.get(&k).cloned().unwrap_or(Value::Null)),
             (Value::Array(a), Value::Str(k)) => Ok(a
                 .iter()
@@ -449,7 +437,6 @@ impl<'a> Evaluator<'a> {
                     }
                 }
             }
-            _ => unreachable!(),
         };
         Ok(ok)
     }
@@ -542,7 +529,7 @@ impl From<StepStatus> for Value {
 }
 
 // Re-exports so funcs.rs can see them.
-pub use crate::model::{StepStatus as StepStatusT, JobStatus as JobStatusT};
+pub use crate::model::{JobStatus as JobStatusT, StepStatus as StepStatusT};
 
 /// Convenience for evaluating a string `if:` expression.
 pub fn eval_if(expr: &str, env: &Env, dsc: DefaultStatusCheck) -> anyhow::Result<bool> {

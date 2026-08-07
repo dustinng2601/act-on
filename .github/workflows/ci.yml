@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Pushing again supersedes the previous run: only the newest answer is read.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Linux only. macOS bills at ten times a Linux minute and Windows at twice,
+  # and this project's platform-specific code is a handful of `cfg` blocks —
+  # not worth an order of magnitude on every push. Add the other platforms when
+  # there is something that genuinely only breaks there.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test
+
+  # Rule-based analysis, published to SonarQube Cloud. Separate from the CLI's
+  # `sonar analyze`, which routes through server-side agentic analysis that both
+  # organisations answer 403 for — this scanner needs no such tier.
+  #
+  # Skipped when the token is absent, which is the case on a fork: a pull request
+  # from one cannot read repository secrets, and failing it for that would say
+  # nothing about the change.
+  sonar:
+    name: Sonar
+    runs-on: ubuntu-latest
+    # Set at job level so the step below can test it. A step cannot read a
+    # variable declared in its own `env:` from its `if:`.
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Sonar attributes findings to commits, and a shallow clone leaves it
+          # guessing at blame and at what is new.
+          fetch-depth: 0
+
+      - name: Scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v6

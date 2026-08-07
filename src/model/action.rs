@@ -139,5 +139,8 @@ pub fn read_action(action_dir: &std::path::Path) -> anyhow::Result<Action> {
             return Ok(action);
         }
     }
-    anyhow::bail!("no action.yml or action.yaml found in {}", action_dir.display());
+    anyhow::bail!(
+        "no action.yml or action.yaml found in {}",
+        action_dir.display()
+    );
 }
