@@ -48,6 +48,7 @@ impl<'a> Lexer<'a> {
         self.src.get(self.pos).copied()
     }
 
+    #[allow(dead_code, reason = "lexer lookahead kept for the parser's use")]
     fn peek2(&self) -> Option<u8> {
         self.src.get(self.pos + 1).copied()
     }
@@ -68,6 +69,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    #[allow(
+        clippy::should_implement_trait,
+        reason = "returns the lexer's own Token, not an Iterator item"
+    )]
     pub fn next(&mut self) -> Option<Token> {
         self.skip_ws();
         let b = self.bump()?;

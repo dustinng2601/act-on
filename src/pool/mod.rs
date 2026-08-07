@@ -4,12 +4,12 @@
 //! This is the second big extension over nektos/act: a job's `runs-on:`
 //! labels are matched against a fleet of owned and pool-shared devices.
 
-pub mod policy;
 pub mod device;
-pub mod router;
+pub mod policy;
 pub mod registry;
+pub mod router;
 
-pub use policy::{Policy, Fallback, FallbackStrategy, ShareMode};
 pub use device::{Device, DeviceId, DeviceStatus};
-pub use router::pick_device_for_job;
+pub use policy::{Fallback, FallbackStrategy, Policy, ShareMode};
 pub use registry::Registry;
+pub use router::pick_device_for_job;

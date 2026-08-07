@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::model::Step;
-use crate::Result;
 use crate::runner::RunContext;
 use crate::util::shell;
+use crate::Result;
 
 pub async fn run_run_step(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     let raw = step.run.clone().unwrap_or_default();
@@ -14,7 +14,10 @@ pub async fn run_run_step(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     let env = rc.expr_env();
     let script = crate::expr::interpolate(&raw, &env)?;
 
-    let shell = step.shell.clone().unwrap_or_else(|| shell::default_shell(&rc));
+    let shell = step
+        .shell
+        .clone()
+        .unwrap_or_else(|| shell::default_shell(&rc));
     let cmd_template = crate::model::workflow::shell_command(&shell)
         .ok_or_else(|| anyhow::anyhow!("invalid shell {shell}"))?;
 
@@ -87,9 +90,7 @@ pub(super) fn apply_file_commands(
     *rc.env.lock() = env;
 
     if let Some(id) = step.id.as_deref() {
-        rc.step_results
-            .lock()
-            .insert(id.to_string(), result);
+        rc.step_results.lock().insert(id.to_string(), result);
     }
     Ok(())
 }

@@ -1,8 +1,7 @@
 //! Shell helpers: default shell per OS, command-string split.
 
-use crate::runner::RunContext;
-use crate::sandbox::ExecutionsEnvironment;
 use crate::platform::Os;
+use crate::runner::RunContext;
 
 /// Default shell for the current sandbox. On Windows defaults to `pwsh`
 /// (matching GitHub), on Linux/macOS to `bash`.

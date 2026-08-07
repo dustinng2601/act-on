@@ -40,7 +40,9 @@ impl HostEnvironment {
         let root = workdir.join(".act-on");
         let actpath = root.join("runs").join(sanitise(scope));
         std::fs::create_dir_all(&actpath)?;
-        let temp = std::env::temp_dir().join("act-on").join(uuid::Uuid::new_v4().to_string());
+        let temp = std::env::temp_dir()
+            .join("act-on")
+            .join(uuid::Uuid::new_v4().to_string());
         std::fs::create_dir_all(&temp)?;
         let tool_cache = root.join("tool-cache");
         std::fs::create_dir_all(&tool_cache)?;
@@ -168,6 +170,25 @@ fn same_dir(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Make a run's name safe to use as a directory.
+fn sanitise(scope: &str) -> String {
+    let cleaned: String = scope
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    if cleaned.is_empty() {
+        "job".to_string()
+    } else {
+        cleaned
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,18 +217,5 @@ mod tests {
             std::fs::read_to_string(&file).unwrap(),
             "contents that must survive"
         );
-    }
-}
-
-/// Make a run's name safe to use as a directory.
-fn sanitise(scope: &str) -> String {
-    let cleaned: String = scope
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
-        .collect();
-    if cleaned.is_empty() {
-        "job".to_string()
-    } else {
-        cleaned
     }
 }

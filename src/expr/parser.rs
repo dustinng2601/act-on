@@ -35,7 +35,7 @@ impl<'a> Parser<'a> {
     }
 
     fn peek_is(&self, t: &Token) -> bool {
-        self.peek.as_ref().map_or(false, |p| p == t)
+        self.peek.as_ref() == Some(t)
     }
 
     pub fn parse(&mut self) -> anyhow::Result<Expr> {
@@ -131,9 +131,17 @@ impl<'a> Parser<'a> {
             .ok_or_else(|| anyhow::anyhow!("unexpected end of expression"))?;
         // Literals first - they don't need lookahead.
         match &tok {
-            Token::Null | Token::True | Token::False | Token::Infinity | Token::Nan
-            | Token::Int(_) | Token::Float(_) | Token::Str(_) => {
-                return Ok(super::ast::literal_of(tok).expect("literal_of covers all literal variants"));
+            Token::Null
+            | Token::True
+            | Token::False
+            | Token::Infinity
+            | Token::Nan
+            | Token::Int(_)
+            | Token::Float(_)
+            | Token::Str(_) => {
+                return Ok(
+                    super::ast::literal_of(tok).expect("literal_of covers all literal variants")
+                );
             }
             _ => {}
         }

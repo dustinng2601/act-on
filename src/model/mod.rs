@@ -1,13 +1,13 @@
 //! Data model: workflow / job / step / strategy / container / action / context.
 
-pub mod workflow;
 pub mod action;
 pub mod context;
-pub mod plan;
 pub mod event;
+pub mod plan;
+pub mod workflow;
 
-pub use workflow::{Workflow, Job, Step, StrategyKind, ContainerSpec, StepType, JobType, StepEnv};
-pub use action::{Action, ActionRuns, ActionRunsUsing, ActionInput, ActionOutput};
-pub use context::{GithubContext, JobContext, JobStatus, StepResult, StepStatus, Needs};
-pub use plan::{WorkflowPlanner, Plan, Stage, Run};
+pub use action::{Action, ActionInput, ActionOutput, ActionRuns, ActionRunsUsing};
+pub use context::{GithubContext, JobContext, JobStatus, Needs, StepResult, StepStatus};
 pub use event::Event;
+pub use plan::{Plan, Run, Stage, WorkflowPlanner};
+pub use workflow::{ContainerSpec, Job, JobType, Step, StepEnv, StepType, StrategyKind, Workflow};

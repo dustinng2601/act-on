@@ -45,7 +45,10 @@ mod tests {
     fn basic_cartesian() {
         let mut d = HashMap::new();
         d.insert("a".into(), vec![Value::String("x".into())]);
-        d.insert("b".into(), vec![Value::String("y".into()), Value::String("z".into())]);
+        d.insert(
+            "b".into(),
+            vec![Value::String("y".into()), Value::String("z".into())],
+        );
         let out = product(&d);
         assert_eq!(out.len(), 2);
     }

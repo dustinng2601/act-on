@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use crate::model::{Step, StepType};
-use crate::Result;
+use crate::model::Step;
 use crate::runner::RunContext;
+use crate::Result;
 
 pub async fn run_local_action(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     let uses = step.uses.clone().unwrap_or_default();
@@ -32,7 +32,10 @@ pub async fn run_remote_action(rc: Arc<RunContext>, step: &Step) -> Result<()> {
         if name.org == "actions" && name.repo == "checkout" {
             tracing::info!(target: "act_on::action", "actions/checkout short-circuit");
             rc.sandbox
-                .copy_dir(&rc.workdir, rc.sandbox.workspace().to_string_lossy().as_ref())
+                .copy_dir(
+                    &rc.workdir,
+                    rc.sandbox.workspace().to_string_lossy().as_ref(),
+                )
                 .await?;
             return Ok(());
         }
@@ -241,7 +244,9 @@ pub async fn run_docker_action(_rc: Arc<RunContext>, _step: &Step) -> Result<()>
     // TODO v1.2: spawn a separate docker container sharing the job container
     // network (`--network container:<id>`). For v0.1 we just bail with a
     // friendly message.
-    Err(anyhow::anyhow!("docker:// actions are not yet supported in v0.1"))
+    Err(anyhow::anyhow!(
+        "docker:// actions are not yet supported in v0.1"
+    ))
 }
 
 // re-export StepType so callers can match on it

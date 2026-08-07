@@ -100,11 +100,7 @@ impl RunContext {
     pub fn expr_env(&self) -> ExprEnv {
         let mut env = ExprEnv::default();
         env.github = crate::model::GithubContext {
-            workflow: self
-                .workflow
-                .file
-                .clone()
-                .unwrap_or_default(),
+            workflow: self.workflow.file.clone().unwrap_or_default(),
             workspace: self.workdir.to_string_lossy().into(),
             event_name: self.config.event_name.clone(),
             actor: self.config.actor.clone(),
@@ -144,7 +140,10 @@ impl RunContext {
         env.runner = HashMap::from([
             ("os".into(), self.sandbox.runner_os().into()),
             ("arch".into(), self.sandbox.runner_arch().into()),
-            ("temp".into(), self.sandbox.temp_dir().to_string_lossy().into()),
+            (
+                "temp".into(),
+                self.sandbox.temp_dir().to_string_lossy().into(),
+            ),
             (
                 "tool_cache".into(),
                 self.sandbox.tool_cache().to_string_lossy().into(),
@@ -171,9 +170,15 @@ fn runner_env(
     HashMap::from([
         ("CI".to_string(), "true".to_string()),
         ("RUNNER_OS".to_string(), plat.os.runner_os().to_string()),
-        ("RUNNER_ARCH".to_string(), plat.arch.runner_arch().to_string()),
+        (
+            "RUNNER_ARCH".to_string(),
+            plat.arch.runner_arch().to_string(),
+        ),
         ("RUNNER_TEMP".to_string(), absolute(&sandbox.temp_dir())),
-        ("RUNNER_TOOL_CACHE".to_string(), absolute(&sandbox.tool_cache())),
+        (
+            "RUNNER_TOOL_CACHE".to_string(),
+            absolute(&sandbox.tool_cache()),
+        ),
         ("GITHUB_WORKSPACE".to_string(), absolute(workdir)),
     ])
 }

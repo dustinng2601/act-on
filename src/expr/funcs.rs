@@ -1,11 +1,10 @@
 //! Built-in functions of the GitHub Actions expression language.
 
-use super::eval::{Evaluator, Value};
 use super::ast::Expr;
+use super::eval::{Evaluator, Value};
 use crate::model::JobStatus;
 
 pub fn call(eval: &Evaluator<'_>, name: &str, args: &[Expr]) -> anyhow::Result<Value> {
-    let name = name.as_ref();
     let evaluated: Vec<Value> = args
         .iter()
         .map(|a| eval.eval_inner(a))
@@ -61,14 +60,19 @@ pub fn call(eval: &Evaluator<'_>, name: &str, args: &[Expr]) -> anyhow::Result<V
                 other => vec![other.clone()],
             };
             Ok(Value::Str(
-                arr.iter().map(|v| v.as_str()).collect::<Vec<_>>().join(&sep),
+                arr.iter()
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(&sep),
             ))
         }
         "toJSON" => {
             if evaluated.len() != 1 {
                 anyhow::bail!("toJSON() expects 1 argument");
             }
-            Ok(Value::Str(serde_json::to_string_pretty(&evaluated[0].to_json())?))
+            Ok(Value::Str(serde_json::to_string_pretty(
+                &evaluated[0].to_json(),
+            )?))
         }
         "fromJSON" => {
             if evaluated.len() != 1 {
@@ -89,12 +93,8 @@ pub fn call(eval: &Evaluator<'_>, name: &str, args: &[Expr]) -> anyhow::Result<V
 
 fn contains(haystack: &Value, needle: &Value) -> bool {
     match haystack {
-        Value::Array(arr) => arr
-            .iter()
-            .any(|v| try_eq(v, needle)),
-        Value::Str(s) => s
-            .to_lowercase()
-            .contains(&needle.as_str().to_lowercase()),
+        Value::Array(arr) => arr.iter().any(|v| try_eq(v, needle)),
+        Value::Str(s) => s.to_lowercase().contains(&needle.as_str().to_lowercase()),
         _ => false,
     }
 }

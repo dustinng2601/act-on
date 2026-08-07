@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use crate::model::{Step, StepType};
-use crate::Result;
 use crate::runner::Executor;
+use crate::Result;
 
 pub fn build_step_executor(
     rc: Arc<crate::runner::RunContext>,

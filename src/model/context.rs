@@ -18,16 +18,12 @@ pub struct RunnerContext {
 /// `steps.<id>.*` outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum StepStatus {
+    #[default]
     Success,
     Failure,
     Skipped,
-}
-
-impl Default for StepStatus {
-    fn default() -> Self {
-        StepStatus::Success
-    }
 }
 
 impl std::fmt::Display for StepStatus {
@@ -64,17 +60,13 @@ impl StepResult {
 /// Job-level `job.status`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum JobStatus {
+    #[default]
     Success,
     Failure,
     Cancelled,
     Skipped,
-}
-
-impl Default for JobStatus {
-    fn default() -> Self {
-        JobStatus::Success
-    }
 }
 
 impl std::fmt::Display for JobStatus {

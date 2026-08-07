@@ -4,7 +4,7 @@
 //! into a `format('...', expr1, expr2, ...)` invocation and evaluated, with
 //! the result coerced back to a string.
 
-use super::eval::{Env, Evaluator, Value};
+use super::eval::{Env, Evaluator};
 use super::parser;
 
 /// Strip `${` ... `}` wrappers around a pure expression (used for `if:`
@@ -93,7 +93,10 @@ mod tests {
     #[test]
     fn simple_var() {
         let env = env_with_env(&[("NAME", "world")]);
-        assert_eq!(interpolate("hello ${{ env.NAME }}", &env).unwrap(), "hello world");
+        assert_eq!(
+            interpolate("hello ${{ env.NAME }}", &env).unwrap(),
+            "hello world"
+        );
     }
 
     #[test]
@@ -105,4 +108,3 @@ mod tests {
         );
     }
 }
-

@@ -105,9 +105,13 @@ impl Job {
                 .filter_map(|v| v.as_str().map(str::to_string))
                 .collect(),
             Some(Value::Mapping(m)) => m
-                .get(&Value::String("labels".into()))
+                .get(Value::String("labels".into()))
                 .and_then(|v| v.as_sequence())
-                .map(|s| s.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+                .map(|s| {
+                    s.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
                 .unwrap_or_default(),
             _ => Vec::new(),
         }
@@ -128,7 +132,7 @@ impl Job {
 }
 
 /// `strategy:` block.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Strategy {
     #[serde(default, rename = "fail-fast")]
     pub fail_fast: Option<bool>,
@@ -282,14 +286,4 @@ pub struct StrategyKind {
     pub combinations: Vec<HashMap<String, Value>>,
     pub fail_fast: bool,
     pub max_parallel: i64,
-}
-
-impl Default for Strategy {
-    fn default() -> Self {
-        Self {
-            fail_fast: None,
-            max_parallel: None,
-            matrix: None,
-        }
-    }
 }
