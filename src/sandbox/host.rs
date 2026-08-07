@@ -78,6 +78,21 @@ impl ExecutionsEnvironment for HostEnvironment {
         } else {
             PathBuf::from(dst)
         };
+
+        // Copying a directory onto itself destroys it: the walk reads each file
+        // while the copy truncates the same path, so every file is emptied. On
+        // this sandbox `workspace()` *is* the working directory, so a checkout
+        // asks for exactly that, and there is genuinely nothing to do — the
+        // files are already where they need to be.
+        if same_dir(src, &dst) {
+            tracing::debug!(
+                target: "act_on::sandbox",
+                "copy_dir skipped: {} is already the destination",
+                src.display()
+            );
+            return Ok(());
+        }
+
         std::fs::create_dir_all(&dst)?;
         copy_recursive(src, &dst)?;
         Ok(())
@@ -124,4 +139,47 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Whether two paths name the same directory.
+///
+/// Compared after canonicalising so `.`, a trailing slash, or a symlinked
+/// checkout do not read as different places. A path that cannot be canonicalised
+/// does not exist yet, and cannot be the one being copied from.
+fn same_dir(a: &Path, b: &Path) -> bool {
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sandbox::env::ExecutionsEnvironment;
+
+    /// The bug this guards against emptied every file in the checkout.
+    ///
+    /// `workspace()` is the working directory on this sandbox, so the
+    /// `actions/checkout` short-circuit asked to copy the tree onto itself. The
+    /// walk read each file while the copy truncated the same path, and a real
+    /// repository came back with 251 files changed and its workflow emptied.
+    #[tokio::test]
+    async fn copying_a_directory_onto_itself_leaves_it_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let file = root.join("keep.txt");
+        std::fs::write(&file, "contents that must survive").unwrap();
+
+        let sandbox = HostEnvironment::new(root.clone()).unwrap();
+        sandbox
+            .copy_dir(&root, root.to_string_lossy().as_ref())
+            .await
+            .expect("copying onto itself should be a no-op, not an error");
+
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "contents that must survive"
+        );
+    }
 }
