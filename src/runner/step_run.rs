@@ -36,14 +36,56 @@ pub async fn run_run_step(rc: Arc<RunContext>, step: &Step) -> Result<()> {
     let final_cmd = cmd_template.replace("{0}", &script_path.to_string_lossy());
     let argv = shell::split(&final_cmd);
 
-    let env_map = rc.env.lock().clone();
+    // The files a step writes to in order to say something back: an output, a
+    // variable for later steps, a PATH entry, a summary. GitHub hands every step
+    // fresh ones and reads them afterwards; without them `>> "$GITHUB_OUTPUT"`
+    // redirects to nothing and the shell fails on an empty path.
+    let commands = crate::workflow_cmd::FileCommands::new(&rc.actpath)?;
+    let mut env_map = rc.env.lock().clone();
+    crate::sandbox::file_cmd::populate_env(&mut env_map, &commands);
+
     let exit = rc
         .sandbox
         .exec(argv, env_map, workdir.to_string_lossy().as_ref())
         .await?;
+
+    // Read back whatever the step wrote, whether or not it succeeded. A step
+    // that sets an output and then fails still set it, and a later step asking
+    // for it should see what happened rather than nothing.
+    apply_file_commands(&rc, step, &commands)?;
+
     if exit == 0 {
         Ok(())
     } else {
         anyhow::bail!("step exited with code {exit}")
     }
+}
+
+/// Fold a step's file commands back into the job.
+///
+/// Outputs are recorded under the step's `id`, which is what `steps.<id>.outputs`
+/// reads. A step without an id cannot be referred to, so its outputs are dropped
+/// rather than stored somewhere nothing will look.
+pub(super) fn apply_file_commands(
+    rc: &RunContext,
+    step: &Step,
+    commands: &crate::workflow_cmd::FileCommands,
+) -> Result<()> {
+    let mut result = rc
+        .step_results
+        .lock()
+        .get(step.id.as_deref().unwrap_or_default())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut env = rc.env.lock().clone();
+    commands.read_back(&mut result, &mut env)?;
+    *rc.env.lock() = env;
+
+    if let Some(id) = step.id.as_deref() {
+        rc.step_results
+            .lock()
+            .insert(id.to_string(), result);
+    }
+    Ok(())
 }

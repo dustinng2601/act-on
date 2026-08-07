@@ -140,7 +140,12 @@ async fn run_node(
         anyhow::bail!("node action entry point {} does not exist", entry.display());
     }
 
-    let env = input_env(&rc, step, action)?;
+    let mut env = input_env(&rc, step, action)?;
+    // An action reports its outputs the same way a script does, so it gets the
+    // same files — `core.setOutput` in the toolkit is a write to GITHUB_OUTPUT.
+    let commands = crate::workflow_cmd::FileCommands::new(&rc.actpath)?;
+    crate::sandbox::file_cmd::populate_env(&mut env, &commands);
+
     let argv = vec!["node".to_string(), entry.to_string_lossy().into_owned()];
     tracing::info!(target: "act_on::action", "node action → {}", entry.display());
 
@@ -148,6 +153,9 @@ async fn run_node(
         .sandbox
         .exec(argv, env, rc.workdir.to_string_lossy().as_ref())
         .await?;
+
+    super::step_run::apply_file_commands(&rc, step, &commands)?;
+
     if exit == 0 {
         Ok(())
     } else {
