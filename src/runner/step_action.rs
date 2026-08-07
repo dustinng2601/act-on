@@ -185,6 +185,20 @@ async fn run_composite(
     // duration and taken out again. Leaving them would let one action's inputs
     // be read by a later step that never declared them.
     let inputs = input_env(&rc, step, action)?;
+
+    // `inputs.toolchain` inside the action means the action's input, not the
+    // workflow's. Without this an action that defaults an input and then reads
+    // it through an expression sees nothing — which is how dtolnay/rust-toolchain
+    // reports "'toolchain' is a required input" for an input it defaults itself.
+    let action_inputs: std::collections::HashMap<String, String> = inputs
+        .iter()
+        .filter_map(|(k, v)| {
+            k.strip_prefix("INPUT_")
+                .map(|name| (name.to_lowercase(), v.clone()))
+        })
+        .collect();
+    *rc.action_inputs.lock() = Some(action_inputs);
+
     let added: Vec<String> = {
         let mut env = rc.env.lock();
         inputs
@@ -219,6 +233,7 @@ async fn run_composite(
             env.remove(&key);
         }
     }
+    *rc.action_inputs.lock() = None;
     result
 }
 

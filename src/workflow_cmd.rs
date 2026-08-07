@@ -189,7 +189,14 @@ fn parse_env_file(p: &Path) -> std::io::Result<Vec<(String, String)>> {
             continue;
         }
         if let Some(eq) = line.find('=') {
-            out.push((line[..eq].trim().to_string(), line[eq + 1..].trim().to_string()));
+            // The value is not trimmed. Leading and trailing spaces are part of
+            // it, and actions rely on that: dtolnay/rust-toolchain writes
+            // `components= --component clippy` and then concatenates the outputs
+            // with no separator, so trimming produced `stable--component`.
+            // Only a carriage return is stripped, which is a line ending rather
+            // than content.
+            let value = line[eq + 1..].trim_end_matches('\r');
+            out.push((line[..eq].trim().to_string(), value.to_string()));
         }
     }
     Ok(out)
@@ -263,5 +270,26 @@ mod path_tests {
         assert_eq!(result.outputs.get("colour").unwrap(), "green");
         assert_eq!(result.outputs.get("count").unwrap(), "3");
         assert_eq!(env.get("CARRIED").unwrap(), "over");
+    }
+}
+
+#[cfg(test)]
+mod value_tests {
+    use super::*;
+
+    #[test]
+    fn a_leading_space_in_an_output_survives() {
+        // dtolnay/rust-toolchain writes its flags with a leading space and
+        // concatenates the outputs without one. Trimming here turned
+        // `stable` + ` --component clippy` into `stable--component`.
+        let dir = tempfile::tempdir().unwrap();
+        let fc = FileCommands::new(dir.path()).unwrap();
+        std::fs::write(&fc.output, "components= --component clippy\n").unwrap();
+
+        let mut env = HashMap::new();
+        let mut result = StepResult::default();
+        fc.read_back(&mut result, &mut env).unwrap();
+
+        assert_eq!(result.outputs.get("components").unwrap(), " --component clippy");
     }
 }

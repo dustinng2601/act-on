@@ -35,6 +35,12 @@ pub struct RunContext {
     /// Job-level env (mutable across steps).
     pub env: Arc<Mutex<HashMap<String, String>>>,
 
+    /// The inputs of the action currently running, when one is.
+    ///
+    /// Inside a composite action `inputs.*` means that action's inputs, not the
+    /// workflow's. Held here for the duration of the action and cleared after,
+    /// so a step outside one still sees the workflow's.
+    pub action_inputs: Arc<Mutex<Option<HashMap<String, String>>>>,
     /// Extra-path entries appended by steps.
     pub extra_path: Arc<Mutex<Vec<String>>>,
 
@@ -75,7 +81,8 @@ impl RunContext {
             result: Mutex::new(String::new()),
             step_results: Arc::new(Mutex::new(HashMap::new())),
             masks: Arc::new(Mutex::new(Vec::new())),
-            env: Arc::new(Mutex::new(HashMap::new())),
+            env: Arc::new(Mutex::new(runner_env(sandbox.as_ref(), &workdir))),
+            action_inputs: Arc::new(Mutex::new(None)),
             extra_path: Arc::new(Mutex::new(Vec::new())),
             workdir,
             actpath,
@@ -102,6 +109,19 @@ impl RunContext {
             run_id: uuid::Uuid::new_v4().to_string(),
             run_number: 1,
             run_attempt: 1,
+            // Actions read this through `${{ github.token }}`, which is
+            // usually an input's default — the sccache action asks for a token
+            // it never sees the workflow pass. GitHub injects one; act-on cannot
+            // mint it, so it takes one the caller supplied with `--secret` or
+            // left in the environment, and otherwise leaves it empty.
+            token: self
+                .config
+                .secrets_map()
+                .get("GITHUB_TOKEN")
+                .cloned()
+                .or_else(|| std::env::var("GITHUB_TOKEN").ok())
+                .or_else(|| std::env::var("GH_TOKEN").ok())
+                .unwrap_or_default(),
             server_url: "https://github.com".into(),
             api_url: "https://api.github.com".into(),
             graphql_url: "https://api.github.com/graphql".into(),
@@ -111,7 +131,11 @@ impl RunContext {
         env.steps = self.step_results.lock().clone();
         env.secrets = self.config.secrets_map();
         env.vars = self.config.vars_map();
-        env.inputs = self.config.inputs_map();
+        // An action's inputs shadow the workflow's while it runs.
+        env.inputs = match self.action_inputs.lock().clone() {
+            Some(inputs) => inputs,
+            None => self.config.inputs_map(),
+        };
         env.matrix = self.matrix.clone();
         env.runner = HashMap::from([
             ("os".into(), self.sandbox.runner_os().into()),
@@ -124,4 +148,37 @@ impl RunContext {
         ]);
         env
     }
+}
+
+/// The variables a runner is expected to provide.
+///
+/// Actions read these directly — the sccache action asserts `RUNNER_TOOL_CACHE`
+/// is defined before it will download anything — and nothing was setting them.
+///
+/// Deliberately not the whole of [`crate::sandbox::SandboxProfile`]: that also
+/// sets `HOME` to the workspace, which is right for a throwaway hosted runner
+/// and wrong here, where it would point rustup and cargo away from the caller's
+/// real home. Paths come from the sandbox, which already made them.
+fn runner_env(
+    sandbox: &dyn crate::sandbox::ExecutionsEnvironment,
+    workdir: &std::path::Path,
+) -> HashMap<String, String> {
+    let plat = crate::platform::Platform::current();
+    HashMap::from([
+        ("CI".to_string(), "true".to_string()),
+        ("RUNNER_OS".to_string(), plat.os.runner_os().to_string()),
+        ("RUNNER_ARCH".to_string(), plat.arch.runner_arch().to_string()),
+        (
+            "RUNNER_TEMP".to_string(),
+            sandbox.temp_dir().to_string_lossy().into_owned(),
+        ),
+        (
+            "RUNNER_TOOL_CACHE".to_string(),
+            sandbox.tool_cache().to_string_lossy().into_owned(),
+        ),
+        (
+            "GITHUB_WORKSPACE".to_string(),
+            workdir.to_string_lossy().into_owned(),
+        ),
+    ])
 }
