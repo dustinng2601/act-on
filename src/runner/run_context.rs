@@ -71,7 +71,11 @@ impl RunContext {
         sandbox: Arc<dyn ExecutionsEnvironment + Send + Sync>,
     ) -> Self {
         let workdir = config.workdir.clone();
-        let actpath = workdir.join(".act-on");
+        // The sandbox's own working area, not a second guess at it. Deriving it
+        // here again put every concurrent matrix leg back on one `run.sh` and
+        // one set of command files, so a leg ran whichever script was written
+        // last — three legs of a three-way matrix all ran the same one.
+        let actpath = sandbox.act_path();
         Self {
             config,
             workflow,
@@ -168,17 +172,27 @@ fn runner_env(
         ("CI".to_string(), "true".to_string()),
         ("RUNNER_OS".to_string(), plat.os.runner_os().to_string()),
         ("RUNNER_ARCH".to_string(), plat.arch.runner_arch().to_string()),
-        (
-            "RUNNER_TEMP".to_string(),
-            sandbox.temp_dir().to_string_lossy().into_owned(),
-        ),
-        (
-            "RUNNER_TOOL_CACHE".to_string(),
-            sandbox.tool_cache().to_string_lossy().into_owned(),
-        ),
-        (
-            "GITHUB_WORKSPACE".to_string(),
-            workdir.to_string_lossy().into_owned(),
-        ),
+        ("RUNNER_TEMP".to_string(), absolute(&sandbox.temp_dir())),
+        ("RUNNER_TOOL_CACHE".to_string(), absolute(&sandbox.tool_cache())),
+        ("GITHUB_WORKSPACE".to_string(), absolute(workdir)),
     ])
+}
+
+/// A path an action can hand to something else and expect to work.
+///
+/// These are exported for actions to build paths from, and an action that
+/// installs a tool adds the result to PATH — the sccache action wrote
+/// `.act-on/tool-cache/sccache/0.17.0/arm64` there. A relative PATH entry only
+/// resolves against whatever directory a process happens to be in, and cargo
+/// spawns rustc from several, so the wrapper was never found.
+fn absolute(path: &std::path::Path) -> String {
+    path.canonicalize()
+        .unwrap_or_else(|_| {
+            // Not created yet: make it absolute without requiring it to exist.
+            std::env::current_dir()
+                .map(|cwd| cwd.join(path))
+                .unwrap_or_else(|_| path.to_path_buf())
+        })
+        .to_string_lossy()
+        .into_owned()
 }
