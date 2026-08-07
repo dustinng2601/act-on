@@ -206,9 +206,22 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
             let config = Arc::new(config.clone());
             let workflow = Arc::new(workflow);
             let workdir = config.workdir.clone();
-            let sandbox = Arc::new(HostEnvironment::new(workdir)?);
+            // Named for this leg, so concurrent matrix runs do not share a
+            // script file or a set of command files.
+            let mut scope = run.job_id.clone();
+            let mut dims: Vec<String> = run
+                .matrix
+                .iter()
+                .map(|(k, v)| format!("{k}-{}", v.as_str().unwrap_or_default()))
+                .collect();
+            dims.sort();
+            for dim in dims {
+                scope.push('-');
+                scope.push_str(&dim);
+            }
+            let sandbox = Arc::new(HostEnvironment::scoped(workdir, &scope)?);
             let rc = Arc::new(crate::runner::RunContext::new(
-                config, workflow, run.job_id.clone(), job, Default::default(), sandbox,
+                config, workflow, run.job_id.clone(), job, run.matrix.clone(), sandbox,
             ));
 
             let rc_clone = rc.clone();

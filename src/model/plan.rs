@@ -10,6 +10,12 @@ use super::{Job, JobType, Workflow};
 pub struct Run {
     pub workflow_file: PathBuf,
     pub job_id: String,
+    /// One combination of the job's `strategy.matrix`, empty when it has none.
+    ///
+    /// A job with a matrix becomes one `Run` per combination — that is what
+    /// makes `matrix.os` mean something, and what makes the job run more than
+    /// once.
+    pub matrix: std::collections::HashMap<String, serde_yaml::Value>,
 }
 
 /// A stage is a set of jobs that can run in parallel.
@@ -129,15 +135,23 @@ impl WorkflowPlanner {
             let mut stage = Stage::default();
             for (id, indegree) in &indeg {
                 if *indegree == 0 && !visited.contains(id) {
-                    stage.runs.push(Run {
-                        workflow_file: jobs
-                            .get(id)
-                            .map(|(w, _)| {
-                                PathBuf::from(w.file.clone().unwrap_or_default())
-                            })
-                            .unwrap_or_default(),
-                        job_id: id.clone(),
-                    });
+                    let workflow_file = jobs
+                        .get(id)
+                        .map(|(w, _)| PathBuf::from(w.file.clone().unwrap_or_default()))
+                        .unwrap_or_default();
+                    // One run per matrix combination. A job without a matrix
+                    // yields a single empty one, so this stays the ordinary case.
+                    for matrix in jobs
+                        .get(id)
+                        .map(|(_, j)| matrix_combinations(j))
+                        .unwrap_or_else(|| vec![Default::default()])
+                    {
+                        stage.runs.push(Run {
+                            workflow_file: workflow_file.clone(),
+                            job_id: id.clone(),
+                            matrix,
+                        });
+                    }
                 }
             }
             if stage.runs.is_empty() {
@@ -179,5 +193,44 @@ impl WorkflowPlanner {
             // boolean — names no event, so nothing hooks it.
             Some(_) => false,
         }
+    }
+}
+
+/// Every combination of a job's `strategy.matrix`.
+///
+/// Returns a single empty combination when the job has no matrix, so a caller
+/// can treat both alike. `include` and `exclude` are not applied here: a bare
+/// matrix is what the cartesian product describes, and honouring the directives
+/// belongs with them rather than half-done.
+fn matrix_combinations(
+    job: &Job,
+) -> Vec<std::collections::HashMap<String, serde_yaml::Value>> {
+    let Some(serde_yaml::Value::Mapping(map)) = job
+        .strategy
+        .as_ref()
+        .and_then(|s| s.matrix.as_ref())
+    else {
+        return vec![Default::default()];
+    };
+
+    let mut dims: std::collections::HashMap<String, Vec<serde_yaml::Value>> =
+        std::collections::HashMap::new();
+    for (key, value) in map {
+        let Some(key) = key.as_str() else { continue };
+        // `include` / `exclude` are directives, not dimensions; folding them in
+        // here would invent combinations nobody asked for.
+        if key == "include" || key == "exclude" {
+            continue;
+        }
+        if let serde_yaml::Value::Sequence(values) = value {
+            dims.insert(key.to_string(), values.clone());
+        }
+    }
+
+    let combos = crate::util::cartesian::product(&dims);
+    if combos.is_empty() {
+        vec![Default::default()]
+    } else {
+        combos
     }
 }

@@ -23,11 +23,26 @@ pub struct HostEnvironment {
 
 impl HostEnvironment {
     pub fn new(workdir: PathBuf) -> std::io::Result<Self> {
-        let actpath = workdir.join(".act-on");
+        Self::scoped(workdir, "job")
+    }
+
+    /// A sandbox with its own working area, named by `scope`.
+    ///
+    /// Matrix legs run at the same time, and they used to share one `.act-on`:
+    /// the same `run.sh` and the same GITHUB_OUTPUT file. Each leg overwrote the
+    /// script the others were about to execute, so three legs of a matrix all
+    /// ran whichever was written last, and outputs leaked between them.
+    ///
+    /// The tool cache stays shared. It is a cache — a toolchain fetched by one
+    /// leg is the same toolchain the others need, and downloading it once per
+    /// leg would be the point of it missed.
+    pub fn scoped(workdir: PathBuf, scope: &str) -> std::io::Result<Self> {
+        let root = workdir.join(".act-on");
+        let actpath = root.join("runs").join(sanitise(scope));
         std::fs::create_dir_all(&actpath)?;
         let temp = std::env::temp_dir().join("act-on").join(uuid::Uuid::new_v4().to_string());
         std::fs::create_dir_all(&temp)?;
-        let tool_cache = actpath.join("tool-cache");
+        let tool_cache = root.join("tool-cache");
         std::fs::create_dir_all(&tool_cache)?;
         Ok(Self {
             workdir,
@@ -181,5 +196,18 @@ mod tests {
             std::fs::read_to_string(&file).unwrap(),
             "contents that must survive"
         );
+    }
+}
+
+/// Make a run's name safe to use as a directory.
+fn sanitise(scope: &str) -> String {
+    let cleaned: String = scope
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    if cleaned.is_empty() {
+        "job".to_string()
+    } else {
+        cleaned
     }
 }
