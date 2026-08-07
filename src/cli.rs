@@ -212,9 +212,14 @@ async fn run_plan(config: &Config) -> anyhow::Result<ExitCode> {
             ));
 
             let rc_clone = rc.clone();
+            // Taken before the task, not inside it. `run` is borrowed from
+            // `plan.stages`, and a spawned task has to own everything it
+            // touches — reaching for it inside would hold that borrow for as
+            // long as the task lives.
+            let job_id = run.job_id.clone();
             handles.push(tokio::spawn(async move {
                 let status = run_job(rc_clone).await?;
-                Ok::<_, anyhow::Error>((run.job_id.clone(), status))
+                Ok::<_, anyhow::Error>((job_id, status))
             }));
         }
         for h in handles {

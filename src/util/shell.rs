@@ -49,6 +49,8 @@ pub fn which(cmd: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-// Suppress unused import when not building on windows.
-#[allow(unused_imports)]
+// Windows-only: the module does not exist elsewhere, so this needs a cfg rather
+// than an allow — `allow(unused_imports)` silences a warning, it does not stop
+// the path being resolved.
+#[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;

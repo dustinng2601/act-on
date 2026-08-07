@@ -160,3 +160,21 @@ pub fn platform_of_labels(labels: &[String]) -> Option<Platform> {
 }
 
 pub use consts::{ARCH as TARGET_ARCH_STR, OS as TARGET_OS_STR};
+
+impl Default for Os {
+    /// The machine this is running on.
+    ///
+    /// A `Device` with no OS stated is the local one — that is the only reading
+    /// that is ever right, and picking a variant arbitrarily would silently
+    /// describe someone else's machine.
+    fn default() -> Self {
+        Self::current()
+    }
+}
+
+impl Default for Arch {
+    /// The architecture this is running on, for the same reason as [`Os`].
+    fn default() -> Self {
+        Self::current()
+    }
+}

@@ -175,6 +175,9 @@ impl WorkflowPlanner {
                 .filter_map(|k| k.as_str())
                 .any(|k| k == event),
             None => event == "push",
+            // `on:` written as a scalar other than a string — a bare number or
+            // boolean — names no event, so nothing hooks it.
+            Some(_) => false,
         }
     }
 }

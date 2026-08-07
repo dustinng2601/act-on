@@ -65,10 +65,10 @@ pub fn interpolate_yaml(v: &serde_yaml::Value, env: &Env) -> anyhow::Result<serd
             }
             Value::Mapping(out)
         }
-        Value::Tagged(t) => Value::Tagged(serde_yaml::value::TaggedValue {
+        Value::Tagged(t) => Value::Tagged(Box::new(serde_yaml::value::TaggedValue {
             tag: t.tag.clone(),
-            value: interpolate_yaml(t.value(), env)?,
-        }),
+            value: interpolate_yaml(&t.value, env)?,
+        })),
     })
 }
 
@@ -105,3 +105,4 @@ mod tests {
         );
     }
 }
+

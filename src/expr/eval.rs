@@ -1,5 +1,6 @@
 //! Expression evaluator + environment.
 
+use crate::model::context::StepStatus;
 use std::collections::HashMap;
 
 use serde_yaml::Value as Yaml;
@@ -9,7 +10,11 @@ use super::funcs;
 use crate::model::{GithubContext, JobContext, JobStatus, Needs, StepResult};
 
 /// Runtime value produced by the evaluator.
-#[derive(Debug, Clone)]
+///
+/// Serialisable because `as_str` renders an object as JSON, which is what
+/// GitHub's expression language does when an object reaches a string context.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(untagged)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -110,13 +115,12 @@ impl Value {
                 }
                 Value::Object(out)
             }
-            Yaml::Tagged(t) => Value::from_yaml(t.value()),
+            Yaml::Tagged(t) => Value::from_yaml(&t.value),
         }
     }
 }
 
 /// Evaluation environment — like nektos/act `EvaluationEnvironment`.
-#[derive(Default)]
 pub struct Env {
     pub github: GithubContext,
     pub env: HashMap<String, String>,
@@ -130,6 +134,31 @@ pub struct Env {
     pub inputs: HashMap<String, String>,
     pub runner: HashMap<String, String>,
     pub hash_files: Box<dyn Fn(&[String]) -> Vec<String> + Send + Sync>,
+}
+
+impl Default for Env {
+    /// Everything empty, and `hashFiles` returning nothing.
+    ///
+    /// Written out rather than derived: `hash_files` is a boxed closure, and a
+    /// trait object has no default to fall back on. Returning an empty list is
+    /// the honest default — a cache key built from no files is one that never
+    /// matches, which is safer than one that collides.
+    fn default() -> Self {
+        Self {
+            github: GithubContext::default(),
+            env: HashMap::new(),
+            job: JobContext::default(),
+            steps: HashMap::new(),
+            needs: HashMap::new(),
+            secrets: HashMap::new(),
+            vars: HashMap::new(),
+            strategy: HashMap::new(),
+            matrix: HashMap::new(),
+            inputs: HashMap::new(),
+            runner: HashMap::new(),
+            hash_files: Box::new(|_| Vec::new()),
+        }
+    }
 }
 
 impl std::fmt::Debug for Env {

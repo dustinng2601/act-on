@@ -22,7 +22,7 @@ pub async fn run_job(rc: Arc<RunContext>) -> Result<JobStatus> {
     // Pre-stage: nothing yet (JS pre-hooks live in step action flow).
     // Main: every step in order.
     for (i, step) in rc.job.steps.iter().enumerate() {
-        let exec = step_factory::build_step_executor(rc.clone(), step, i)?;
+        let exec = step_factory::build_step_executor(rc.clone(), step.clone(), i)?;
         pipeline.push(exec);
     }
 

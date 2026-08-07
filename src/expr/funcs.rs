@@ -49,7 +49,7 @@ pub fn call(eval: &Evaluator<'_>, name: &str, args: &[Expr]) -> anyhow::Result<V
             }
             let template = evaluated[0].as_str();
             let rest = &evaluated[1..];
-            Ok(Value::Str(format_string(template, rest)))
+            Ok(Value::Str(format_string(&template, rest)))
         }
         "join" => {
             if evaluated.is_empty() || evaluated.len() > 2 {

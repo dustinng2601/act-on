@@ -61,6 +61,31 @@ pub enum ShareMode {
     Open,
 }
 
+impl Default for Policy {
+    /// An empty policy: no devices, nothing shared, no limits.
+    ///
+    /// `version` starts at 1 rather than 0 so a default-constructed policy is
+    /// indistinguishable from a v1 file, which is what it is.
+    ///
+    /// Note `prefer_pool` is false here, matching what `#[serde(default)]`
+    /// produces for a policy file that omits it. The doc comment on the field
+    /// says the default is true; the two disagree, and changing either would
+    /// change how existing policies route, so this only matches the behaviour
+    /// rather than picking a side.
+    fn default() -> Self {
+        Self {
+            version: 1,
+            owner: String::new(),
+            devices: Vec::new(),
+            fallback: Fallback::default(),
+            prefer_pool: false,
+            max_concurrent_jobs_per_owner: 0,
+            default_timeout_minutes: 0,
+            pool_endpoints: HashMap::new(),
+        }
+    }
+}
+
 impl Policy {
     /// Read and parse a `policy.yml`.
     pub fn from_path(path: &std::path::Path) -> anyhow::Result<Self> {
